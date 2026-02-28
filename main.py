@@ -3,6 +3,7 @@ import cv2
 import time
 from Vision import BallTracker
 from enum import Enum, auto
+import Control
 
 # Camara a usar, Resolucion de la camara
 tracker = BallTracker(cam_index=1, width=640, height=480, show_windows=True)
@@ -20,6 +21,13 @@ TOL_Y = 30
 def main():
     estado = Estado.BUSQUEDA
 
+    # Conectar con Arduino
+    Control.connect("COM5")
+
+    # Limitar frecuencia de envío (evita Write timeout)
+    last_send = 0.0
+    SEND_DT = 0.03  # 33 Hz (si aún falla, prueba 0.05)
+
     try:
         while True:
             #Valores de la vision
@@ -33,63 +41,90 @@ def main():
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
+            # Valores Arduino
+            Ux = 0
+            Uy = 0
+            Ut = 0
+            patada = 0
+            cilindro = 0
+
             # ---- MAQUINA DE ESTADOS----
+
+            # ========== BUSQUEDA ==========
             if estado == Estado.BUSQUEDA:
                 print("BUSQUEDA...")
                 # ---- TRANSICIONES ----
                 if found:
                     estado = Estado.ALINEAR
                 else:
-                    # aquí podrías girar para buscar (por ahora solo print)
+                    #Ut = 4.0 # Girar Buscando
                     pass
-
+            # ========== ALINEAR ==========
             elif estado == Estado.ALINEAR:
-                print(f"ALINEAR:")
+                print(f"ALINEAR.")
 
                 # ---- Si perdio la pelota, regresa a BUSQUEDA ----
-                if not found or error_x is None:
+                if not found:
                     print("Perdí pelota en ALINEAR -> BUSQUEDA")
                     estado = Estado.BUSQUEDA
                     continue
 
-                # ---- TRANSICIONES ----
-                print(f"error_x={error_x}  error_y={error_y}  capture={capture}")
+                Ut = 0.0095 * error_x
 
+                # ---- TRANSICIONES ----
                 if abs(error_x) <= TOL_X:
                     estado = Estado.AVANZAR
 
+            # ========== AVANZAR ==========
             elif estado == Estado.AVANZAR:
                 print("AVANZAR.")
 
                 # ---- Si perdio la pelota, regresa a BUSQUEDA ----
-                if not found or error_y is None:
+                if not found:
                     print("Perdí pelota en AVANZAR -> BUSQUEDA")
                     estado = Estado.BUSQUEDA
                     continue
 
+                # Mantener giro pequeño
+                Ut = 0.009 * error_x
+
+                # Avanzar según error Y
+                Uy = - 0.0025 * error_y
+
                 # ---- TRANSICIONES ----
-                print(f"error_x={error_x}  error_y={error_y}  capture={capture}")
                 if abs(error_y) <= TOL_Y:
                     estado = Estado.CAPTURAR
 
+            # ========== CAPTURAR ==========
             elif estado == Estado.CAPTURAR:
                 print("CAPTURAR.")
 
-                # ---- Si perdio la pelota, regresa a BUSQUEDA ----
-                if not found:
-                    print("Perdí pelota en CAPTURAR -> BUSQUEDA")
-                    estado = Estado.BUSQUEDA
-                    continue
+                #if capture == True:
+                Uy = - 0.02
+                cilindro = 1
+
+                # Leer sensor de pelota del Arduino
+                pelota = Control.read()
 
                 # ---- TRANSICIONES ----
-                print(f"error_x={error_x}  error_y={error_y}  capture={capture}")
-                if capture:
-                    print("CAPTURA = TRUE, esperando 10s y regreso a BUSQUEDA")
-                    time.sleep(10)
+                if pelota == 1:
+                    print("Pelota detectada por Arduino")
+                    #time.sleep(5)
                     estado = Estado.BUSQUEDA
+                else:
+                    #time.sleep(5)
+                    estado = Estado.BUSQUEDA
+
+            # print("ENVIO:", Ux, Uy, Ut, patada, cilindro)
+            # ENVIAR A 33 Hz (no cada frame)
+            now = time.time()
+            if (now - last_send) >= SEND_DT:
+                Control.send(Ux, Uy, Ut, patada, cilindro)
+                last_send = now
 
     finally:
         tracker.release()
 
 if __name__ == "__main__":
     main()
+
