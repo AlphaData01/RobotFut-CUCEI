@@ -5,7 +5,7 @@ import serial
 ser = None
 pelota = None
 
-# Windows: "COM5"   Ubuntu: "/dev/ttyACM0"
+# Windows: "COM5"   Ubuntu: "/dev/ttyACM0"...
 def connect(port="COM5", baud=115200):
     global ser
     ser = serial.Serial(port, baud, timeout=0.01, write_timeout=0.01)

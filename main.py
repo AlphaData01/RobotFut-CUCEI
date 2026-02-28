@@ -95,7 +95,7 @@ def main():
                 if abs(error_y) <= TOL_Y:
                     estado = Estado.CAPTURAR
 
-            # ========== CAPTURAR ==========
+            # ========== CAPTURAR ===========
             elif estado == Estado.CAPTURAR:
                 print("CAPTURAR.")
 
