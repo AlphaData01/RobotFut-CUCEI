@@ -1,11 +1,20 @@
+
+# VISION PARA LA PELOTA
+
 import cv2
 import numpy as np
 
 # ==========================
 # CONFIG HSV
 # ==========================
+# Naranja
 NARANJA_BAJO = np.array([0, 50, 60])
-NARANJA_ALTO = np.array([25, 255, 255])
+NARANJA_ALTO = np.array([20, 255, 255])
+
+# Azul
+# NARANJA_BAJO = np.array([100, 150, 50])
+# NARANJA_ALTO = np.array([140, 255, 255])
+
 KERNEL = np.ones((5, 5), np.uint8)
 
 # ==========================
@@ -251,3 +260,4 @@ class BallTracker:
         self.cap.release()
         if self.show_windows:
             cv2.destroyAllWindows()
+
