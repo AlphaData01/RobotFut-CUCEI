@@ -18,7 +18,7 @@ class Estado(Enum):
     TIRAR = auto()
 
 # Tolerancias en pixeles
-TOL_X = 60
+TOL_X = 80
 TOL_Y = 20
 
 t_empuje = None
@@ -79,7 +79,7 @@ def main():
                 if found:
                     estado = Estado.ALINEAR
                 else:
-                    #Ut = 0.4 # Girar Buscando
+                    #Ux = - 0.4 # Girar Buscando
                     pass
 
             # ========== ALINEAR ==========
@@ -116,7 +116,7 @@ def main():
                 Ut = 0.009 * error_x
 
                 # Avanzar según error Y
-                Uy = - 0.005 * error_y
+                Ux = 0.003 * error_y
 
                 # ---- TRANSICIONES ----
                 if abs(error_y) <= TOL_Y:
@@ -141,10 +141,11 @@ def main():
                     t_empuje = time.time()
 
                 # 👉 Empuje corto (1.2 segundos)
-                if time.time() - t_empuje < 6:
-                    Uy = 0.3
+                if time.time() - t_empuje < 2.5:
+                    Ut = - 0.09
+                    Ux = - 0.2
                 else:
-                    Uy = 0
+                    Ux = 0
 
                 # Leer sensor de pelota
                 pelota = Control.read()
