@@ -259,9 +259,9 @@ void cinematica() {
 
   // ====== AQUÍ ESTÁ EL CAMBIO CLAVE ======
   // Intercambiamos B y C porque tu "B física" corresponde al modelo de v3
-  wa = v2 / R;   // ✅ A toma v2
-  wb = v1 / R;   // ✅ B toma v1
-  wc = v3 / R;   // C igual
+  wa = v1 / R;   // A toma lo que era C
+  wb = v2 / R;   // B toma lo que era A
+  wc = v3 / R;   // C toma lo que era B
 
   // Corrección de sentido por motor
   wa *= DIR_A;
