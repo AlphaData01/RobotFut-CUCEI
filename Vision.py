@@ -184,12 +184,15 @@ class BallTracker:
         cv2.line(debug, (cxg, 0), (cxg, Hf - 1), (0, 0, 0), 2)
         cv2.line(debug, (xL, 0), (xL, Hf - 1), (0, 0, 255), 2)
         cv2.line(debug, (xR, 0), (xR, Hf - 1), (0, 0, 255), 2)
-        cv2.line(debug, (0, y_h1), (Wf - 1, y_h1), (0, 0, 255), 2)
-        cv2.line(debug, (0, y_h2), (Wf - 1, y_h2), (0, 0, 255), 2)
+        #cv2.line(debug, (0, y_h1), (Wf - 1, y_h1), (0, 0, 255), 2)
+        #cv2.line(debug, (0, y_h2), (Wf - 1, y_h2), (0, 0, 255), 2)
+        Y_TOL = 15
+        y_tol = Hf - Y_TOL
+        cv2.line(debug, (0, y_tol), (Wf - 1, y_tol), (0, 0, 255), 2)
 
         # Origen (0,0) = cruce línea negra con HLINE_2
         origin_x = cxg
-        origin_y = y_h2
+        origin_y = Hf - 1 # Borde inferior de la imagen
 
         cv2.circle(debug, (origin_x, origin_y), 4, (0, 0, 0), -1)
         cv2.putText(debug, "(0,0)", (origin_x + 6, origin_y - 6),
@@ -205,7 +208,7 @@ class BallTracker:
             self.last_radius = r
             self.lost_frames = 0
 
-            capture = (y >= yCapTop)
+            capture = ((y + r) >= y_tol)
 
             # Errores centrados en (0,0)
             error_x = x - origin_x

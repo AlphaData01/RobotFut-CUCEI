@@ -1,4 +1,6 @@
 
+# RobotFutbol CUCEI
+
 import cv2
 import time
 from Vision import BallTracker
@@ -13,10 +15,13 @@ class Estado(Enum):
     ALINEAR = auto()
     AVANZAR = auto()
     CAPTURAR = auto()
+    TIRAR = auto()
 
 # Tolerancias en pixeles
-TOL_X = 30
-TOL_Y = 30
+TOL_X = 60
+TOL_Y = 20
+
+t_empuje = None
 
 def main():
     estado = Estado.BUSQUEDA
@@ -28,6 +33,19 @@ def main():
     last_send = 0.0
     SEND_DT = 0.03  # 33 Hz (si aún falla, prueba 0.05)
 
+    # Tiempo de captura
+    t_capturar = None
+    CAPTURAR_TIMEOUT = 5.0
+
+    # Tiempo para patear
+    t_tirar = None
+
+    # Rodillo de Captura
+    cilindro_on = 0
+
+    # Estados
+    estado_prev = None
+
     try:
         while True:
             #Valores de la vision
@@ -36,40 +54,47 @@ def main():
             # Fallo camara
             if debug is None:
                 break
+
             # Camara
             cv2.imshow("Salida", debug)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
-            # Valores Arduino
+            # Valores del Arduino en cada Iteracion
             Ux = 0
             Uy = 0
             Ut = 0
             patada = 0
-            cilindro = 0
+            cilindro = cilindro_on
 
             # ---- MAQUINA DE ESTADOS----
 
             # ========== BUSQUEDA ==========
             if estado == Estado.BUSQUEDA:
-                print("BUSQUEDA...")
+                # Imprimir estado
+                if estado != estado_prev:
+                    print("ESTADO:", estado.name)
+                    estado_prev = estado
                 # ---- TRANSICIONES ----
                 if found:
                     estado = Estado.ALINEAR
                 else:
-                    #Ut = 4.0 # Girar Buscando
+                    #Ut = 0.4 # Girar Buscando
                     pass
+
             # ========== ALINEAR ==========
             elif estado == Estado.ALINEAR:
-                print(f"ALINEAR.")
-
+                # Imprimir estado
+                if estado != estado_prev:
+                    print("ESTADO:", estado.name)
+                    estado_prev = estado
                 # ---- Si perdio la pelota, regresa a BUSQUEDA ----
                 if not found:
                     print("Perdí pelota en ALINEAR -> BUSQUEDA")
                     estado = Estado.BUSQUEDA
                     continue
 
-                Ut = 0.0095 * error_x
+                Ut = 0.01 * error_x
 
                 # ---- TRANSICIONES ----
                 if abs(error_x) <= TOL_X:
@@ -77,8 +102,10 @@ def main():
 
             # ========== AVANZAR ==========
             elif estado == Estado.AVANZAR:
-                print("AVANZAR.")
-
+                # Imprimir estado
+                if estado != estado_prev:
+                    print("ESTADO:", estado.name)
+                    estado_prev = estado
                 # ---- Si perdio la pelota, regresa a BUSQUEDA ----
                 if not found:
                     print("Perdí pelota en AVANZAR -> BUSQUEDA")
@@ -89,7 +116,7 @@ def main():
                 Ut = 0.009 * error_x
 
                 # Avanzar según error Y
-                Uy = - 0.0025 * error_y
+                Uy = - 0.005 * error_y
 
                 # ---- TRANSICIONES ----
                 if abs(error_y) <= TOL_Y:
@@ -97,22 +124,66 @@ def main():
 
             # ========== CAPTURAR ===========
             elif estado == Estado.CAPTURAR:
-                print("CAPTURAR.")
+                if estado != estado_prev:
+                    print("ESTADO:", estado.name)
+                    estado_prev = estado
+                    t_empuje = None  # reset empuje al entrar
 
-                #if capture == True:
-                Uy = - 0.02
-                cilindro = 1
+                cilindro_on = 1
+                Ut = 0
 
-                # Leer sensor de pelota del Arduino
+                # Timer general de captura (NO lo tocamos)
+                if t_capturar is None:
+                    t_capturar = time.time()
+
+                # Timer solo para el empujón
+                if t_empuje is None:
+                    t_empuje = time.time()
+
+                # 👉 Empuje corto (1.2 segundos)
+                if time.time() - t_empuje < 6:
+                    Uy = 0.3
+                else:
+                    Uy = 0
+
+                # Leer sensor de pelota
                 pelota = Control.read()
 
                 # ---- TRANSICIONES ----
                 if pelota == 1:
-                    print("Pelota detectada por Arduino")
-                    #time.sleep(5)
+                    print("Pelota detectada -> TIRAR")
+                    t_capturar = None
+                    t_empuje = None
+                    estado = Estado.TIRAR
+
+                elif time.time() - t_capturar > CAPTURAR_TIMEOUT:
+                    print("No capturó -> BUSQUEDA")
+                    cilindro_on = 0
+                    t_capturar = None
+                    t_empuje = None
                     estado = Estado.BUSQUEDA
-                else:
-                    #time.sleep(5)
+
+            # ========== TIRAR ===========
+            elif estado == Estado.TIRAR:
+                # Imprimir estado
+                if estado != estado_prev:
+                    print("ESTADO:", estado.name)
+                    estado_prev = estado
+
+                cilindro_on = 1
+                Ux = 0
+                Uy = 0
+                Ut = 0
+
+                # Si es la primera vez que entra
+                if t_tirar is None:
+                    t_tirar = time.time()
+
+                # Espera 2 segundos con cilindro girando
+                if time.time() - t_tirar >= 2:
+                    patada = 1  # Activa pateador
+                    cilindro_on = 0  # Apaga cilindro
+                    t_tirar = None  # Reset
                     estado = Estado.BUSQUEDA
 
             # print("ENVIO:", Ux, Uy, Ut, patada, cilindro)
